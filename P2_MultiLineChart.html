@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MultiLine Chart</title>
+    <script src="https://d3js.org/d3.v4.js"></script>
+    <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+    <style>
+
+        .legend rect {
+            width: 11px;
+            height: 10px;
+            fill-opacity: 0.9;
+        }
+
+        .axis path,
+        .axis line {
+            fill: none;
+            stroke: #999999;
+            shape-rendering: crispEdges;
+        }
+        .axis text {
+            font-size: 9px;
+            fill: #333;
+            font-weight: bold; /* Set text thickness */
+        }
+
+        .line {
+            fill: none;
+            stroke-width: 3px; /* Change line thickness */
+        }
+
+        .label {
+            font-size: 14px; /* Change font size */
+            fill: #333;
+        }
+        .legend text {
+            font-size: 14px; /* Change font size */
+            fill: #333;
+            font-weight: bold; /* Set text thickness */
+        }
+
+        .legend-box {
+            fill: none;
+            stroke: #333;
+            stroke-width: 1px;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="DV" style="width: 700px; height: 600px; margin: 0 auto;"></div>
+    <script>
+        var margin = { right: 145, bottom: 50, left: 100, top: 45 },
+            width = 800 - margin.left - margin.right,
+            height = 600 - margin.top - margin.bottom;
+
+        var xScale = d3.scaleTime()
+            .range([0, width]);
+
+        var yScale = d3.scaleLinear()
+            .range([height, 0]);
+
+        var svg = d3.select("#DV")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+        svg.append("text")
+            .attr("class", "title")
+            .attr("x", width / 4)
+            .attr("y", -20)
+            .text("Multi Line Chart");
+            
+        var myClr = d3.scaleOrdinal()
+            .domain(["EstimatedCost", "ActualCost", "SoldPrice", "MarginOfProfit"])
+            .range(["#ff5733", "#33ff57", "#377eb8", "#984ea3"]);
+
+        var line_chartf = d3.line()
+            .x(function (d) { return xScale(d.time); })
+            .y(function (d) { return yScale(d.value); });
+
+        d3.csv("https://raw.githubusercontent.com/Akanksha200008/DataVisualization_MultiLine/main/data_sample.csv", function (data) {
+            var colGroups = ["EstimatedCost", "RawMaterial", "Workmanship", "StorageCost"];
+
+            data.forEach(line_chartf => {
+                const { RawMaterial, Workmanship, StorageCost, EstimatedCost, date } = line_chartf;
+                line_chartf.RawMaterial = +RawMaterial;
+                line_chartf.Workmanship = +Workmanship;
+                line_chartf.StorageCost = +StorageCost;
+                line_chartf.time = new Date(date);
+                line_chartf.ActualCost = line_chartf.RawMaterial + line_chartf.Workmanship + line_chartf.StorageCost;
+                line_chartf.SoldPrice = EstimatedCost * 1.1;
+                line_chartf.MarginOfProfit = line_chartf.SoldPrice - line_chartf.ActualCost;
+            });
+
+
+            yScale.domain([
+                Math.floor(d3.min(data, function(line_chartf) {
+                    return Math.min(0, line_chartf.EstimatedCost, line_chartf.ActualCost, line_chartf.SoldPrice, line_chartf.MarginOfProfit);
+                }) / 300) * 300, 
+                Math.ceil(d3.max(data, function(line_chartf) {
+                    return Math.max(line_chartf.EstimatedCost, line_chartf.ActualCost, line_chartf.SoldPrice, line_chartf.MarginOfProfit);
+                }) / 300) * 300
+            ]);
+
+            xScale.domain(d3.extent(data, function(line_chartf) { return line_chartf.time; }));
+
+            var formattedData = ["EstimatedCost", "ActualCost", "SoldPrice", "MarginOfProfit"].map(function(groupName) {
+                var groupValues = data.map(function(line_chartf) {
+                    return { time: line_chartf.time, value: +line_chartf[groupName] };
+                });
+                return { name: groupName, values: groupValues };
+            });
+
+            svg.append("g")
+                .attr("transform", "translate(0," + height + ")")
+                .call(d3.axisBottom(xScale)
+                    .ticks(d3.timeMonth.every(1))
+                    .tickFormat(d3.timeFormat("%b %Y")))
+                .selectAll("text")
+                .style("text-anchor", "end")
+                .attr("dx", "-.8em")
+                .attr("dy", ".15em")
+                .attr("transform", "rotate(-45)");
+
+
+            var legend = svg.selectAll(".legend")
+                .data(formattedData)
+                .enter()
+                .append("g")
+                .attr("class", "legend");
+                legend.attr("transform", (d, i) => `translate(${width + 10}, ${i * 20 + 10})`);
+
+            legend.append("text")
+                .attr("x", 22)
+                .attr("y", 10)
+                .attr("dy", ".35em")
+                .style("text-anchor", "start")
+                .style("font-family", "Arial, sans-serif") 
+                .style("font-size", "12px") 
+                .style("font-weight", "bold") 
+                .text(function(d) { return d.name; });
+
+
+            legend.append("rect")
+                .attr("x", 0)
+                .attr("width", 12)
+                .attr("height", 12)
+                .style("fill", function(d) { return myClr(d.name); });
+
+            svg.append("rect")
+                .attr("class", "legend-box")
+                .attr("x", width + 5)
+                .attr("y", 5)
+                .attr("width", 120)
+                .attr("height", 110)
+                .style("fill", "none")
+                .style("stroke", "#333")
+                .style("stroke-width", 2);
+
+            svg.append("g")
+                .call(d3.axisLeft(yScale)
+                    .ticks(20)
+                    .tickFormat(d3.format(".2f")));
+
+            svg.selectAll("myLines")
+                .data(formattedData)
+                .enter()
+                .append("path")
+                .attr("class", "line")
+                .attr("d", function (d) { return line_chartf(d.values); })
+                .attr("stroke", function (d) { return myClr(d.name); });
+
+        });
+
+        var SVG_Box = document.getElementById('svg');
+        SVG_Box.setAttribute("viewBox", "0 0 1000 800");
+    </script>
+</body>
+</html>
